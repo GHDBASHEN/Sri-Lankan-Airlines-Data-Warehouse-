@@ -1,6 +1,3 @@
-# ==============================================================================
-# SCRIPT START: COPY EVERYTHING BELOW THIS LINE
-# ==============================================================================
 import os
 import pandas as pd
 import traceback
