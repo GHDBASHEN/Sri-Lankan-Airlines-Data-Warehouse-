@@ -1,0 +1,3 @@
+carrier_code,flight_number,aircraft_key,date,scheduled_dep_time,scheduled_arr_time,actual_dep_time,actual_arr_time,origin_airport_key,dest_airport_key,distance_km,seats_offered,seats_occupied,cancellations,delay_departure_minutes,delay_arrival_minutes,load_factor
+UL,UL303,1,2025-09-01,10:00:00,13:30:00,10:15:00,13:45:00,1,2,2387,269,250,0,15,15,92.9
+UL,UL195,2,2025-09-02,14:00:00,18:00:00,14:05:00,18:20:00,1,3,3288,150,140,0,5,20,93.3
