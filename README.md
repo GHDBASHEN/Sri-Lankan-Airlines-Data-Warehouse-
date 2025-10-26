@@ -4,7 +4,9 @@ This project is a complete end-to-end data engineering solution that builds a da
 
 This data warehouse integrates passenger movements from the CAA, financial metrics from SriLankan Airlines' annual reports, and global context from the World Bank.
 
-![Power BI Model View](https://i.imgur.com/your-model-image.png)
+
+<img width="1203" height="622" alt="Screenshot 2025-10-25 143158" src="https://github.com/user-attachments/assets/d82dd0e1-e565-4dc0-b73c-6ac351764942" />
+
 *(Recommended: Replace this with a screenshot of your Power BI Model view)*
 
 ---
@@ -17,6 +19,9 @@ This data warehouse integrates passenger movements from the CAA, financial metri
 * **Data Cleaning:** The Python script includes extensive cleaning logic to handle inconsistent dates, currency symbols, missing values, and other "dirty" data.
 
 ---
+
+<img width="1024" height="1024" alt="Gemini_Generated_Image_mk7m6imk7m6imk7m" src="https://github.com/user-attachments/assets/76d35351-38f7-4695-8242-703ca37f9ce9" />
+
 
 ## 🏛️ Data Warehouse Schema (Galaxy Schema)
 
