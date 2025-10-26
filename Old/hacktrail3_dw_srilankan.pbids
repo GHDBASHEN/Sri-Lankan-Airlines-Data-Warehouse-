@@ -1,1 +1,0 @@
-{"version":"1.0","connections":[{"details":{"protocol":"mysql","address":{"server":"hacktrail3.mysql.database.azure.com","database":"dw_srilankan"}},"options":{"ReturnSingleDatabase":true}}]}
