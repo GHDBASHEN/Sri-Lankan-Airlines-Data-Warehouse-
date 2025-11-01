@@ -2,6 +2,7 @@
 USE Airlines;
 
 /* Table for cleaned CAA passenger movements */
+-- Data from the Civil Aviation Authority on passenger and aircraft traffic.
 CREATE TABLE IF NOT EXISTS stg_caa_movements (
     movement_id INT AUTO_INCREMENT PRIMARY KEY,
     date_key INT,
@@ -35,3 +36,20 @@ CREATE TABLE IF NOT EXISTS stg_worldbank_transport (
     load_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     KEY idx_year_country (year, country_code)
 );
+
+-- Staging table for aircraft details from the JSON file
+CREATE TABLE `stg_aircraft_details` (
+  `aircraft_model` varchar(100) DEFAULT NULL,
+  `manufacturer` varchar(100) DEFAULT NULL,
+  `seat_capacity` int DEFAULT NULL,
+  `engine_type` varchar(50) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Staging table for flight routes from the legacy database
+CREATE TABLE `stg_flight_routes` (
+  `route_id` varchar(20) DEFAULT NULL,
+  `origin_iata` varchar(10) DEFAULT NULL,
+  `destination_iata` varchar(10) DEFAULT NULL,
+  `distance_km` int DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
