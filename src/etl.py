@@ -161,6 +161,19 @@ def _transform_flight_routes(df):
     df['distance_km'] = pd.to_numeric(df['distance_km'], errors='coerce').astype('Int64')
     return df
 
+# --- NEW: Transform helper for airport reference data ---
+def _transform_airport_reference(df):
+    """Cleans the airport reference data from JSON."""
+    print("  -> Transforming Airport Reference (JSON) data...")
+    df = df.drop_duplicates(subset=['iata'])
+
+    # Rename columns for consistency
+    df = df.rename(columns={'iata': 'iata_code', 'name': 'airport_name'})
+
+    # Clean text fields
+    for col in ['iata_code', 'airport_name', 'city']:
+        df[col] = df[col].astype(str).str.strip()
+    return df[['iata_code', 'airport_name', 'city']]
 
 # --- ETL Pipeline ---
 
@@ -174,7 +187,8 @@ def extract():
         "caa_movements": "caa_passenger_movements_unclean.xlsx",
         "srilankan_financials": "srilankan_annual_report_unclean.xlsx",
         "worldbank_transport": "worldbank_air_transport_unclean.xlsx",
-        "aircraft_details": "aircraft_details.json" # <-- NEW JSON source
+        "aircraft_details": "aircraft_details.json",
+        "airport_reference": "airport_reference.json" # <-- NEW Reference source
     }
     
     try:
@@ -233,6 +247,9 @@ def transform(raw_data):
         if 'flight_routes' in raw_data:
             raw_data['flight_routes_clean'] = _transform_flight_routes(raw_data['flight_routes'])
             print("✅ Transformed Flight Routes (from DB).")
+        if 'airport_reference' in raw_data:
+            raw_data['airport_reference_clean'] = _transform_airport_reference(raw_data['airport_reference'])
+            print("✅ Transformed Airport Reference (from JSON).")
 
         print("✅ All transformations complete.")
         return raw_data
@@ -268,6 +285,8 @@ def load(transformed_data):
             _load_stg_aircraft_details(conn, cursor, transformed_data['aircraft_details_clean'])
         if 'flight_routes_clean' in transformed_data:
             _load_stg_flight_routes(conn, cursor, transformed_data['flight_routes_clean'])
+        if 'airport_reference_clean' in transformed_data:
+            _load_stg_airport_reference(conn, cursor, transformed_data['airport_reference_clean'])
 
         print("\n✅ All staging data loaded successfully.")
         return True
@@ -319,10 +338,12 @@ def run_warehouse_transforms():
             FROM stg_worldbank_transport WHERE year IS NOT NULL
         """,
         "Populating dim_airport...": """
-            INSERT IGNORE INTO dim_airport (iata_code, country)
-            SELECT DISTINCT airport_iata, country
-            FROM stg_caa_movements
-            WHERE airport_iata IS NOT NULL AND airport_iata != ''
+            INSERT IGNORE INTO dim_airport (iata_code, airport_name, city, country)
+            SELECT DISTINCT
+                s.airport_iata, r.airport_name, r.city, s.country
+            FROM stg_caa_movements s
+            LEFT JOIN stg_airport_reference r ON s.airport_iata = r.iata_code
+            WHERE s.airport_iata IS NOT NULL AND s.airport_iata != ''
         """,
         "Populating dim_country...": """
             INSERT IGNORE INTO dim_country (country_code, country_name)
@@ -487,6 +508,20 @@ def _load_stg_flight_routes(conn, cursor, df):
         print(f"   -> {cursor.rowcount} rows processed for stg_flight_routes.")
     except Exception as e:
         print(f"❌ Error loading stg_flight_routes: {e}"); conn.rollback(); raise
+
+def _load_stg_airport_reference(conn, cursor, df):
+    """Loads cleaned airport reference data into its staging table."""
+    print("🔄 Loading stg_airport_reference...")
+    try:
+        data_to_load = _clean_df_for_db(df)
+        cursor.execute("TRUNCATE TABLE stg_airport_reference")
+        print("   -> Staging table truncated.")
+        sql = "INSERT INTO stg_airport_reference (iata_code, airport_name, city) VALUES (%s,%s,%s)"
+        cursor.executemany(sql, data_to_load)
+        conn.commit()
+        print(f"   -> {cursor.rowcount} rows processed for stg_airport_reference.")
+    except Exception as e:
+        print(f"❌ Error loading stg_airport_reference: {e}"); conn.rollback(); raise
 
 # --- Main Execution Block ---
 

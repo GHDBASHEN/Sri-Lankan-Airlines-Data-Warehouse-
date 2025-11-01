@@ -53,3 +53,9 @@ CREATE TABLE `stg_flight_routes` (
   `distance_km` int DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE `stg_airport_reference` (
+  `iata_code` varchar(10) DEFAULT NULL,
+  `airport_name` varchar(100) DEFAULT NULL,
+  `city` varchar(100) DEFAULT NULL,
+  UNIQUE KEY `iata_code` (`iata_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
