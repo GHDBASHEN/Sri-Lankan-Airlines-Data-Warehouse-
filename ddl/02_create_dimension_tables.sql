@@ -55,3 +55,15 @@ CREATE TABLE IF NOT EXISTS dim_metric (
     metric_category VARCHAR(100),     -- e.g., 'Financial', 'Operational'
     UNIQUE KEY uk_metric_name (metric_name)
 );
+
+-- DIMENSION 5: Aircraft --
+
+CREATE TABLE `dim_aircraft` (
+  `aircraft_key` int NOT NULL AUTO_INCREMENT,
+  `aircraft_model` varchar(100) NOT NULL,
+  `manufacturer` varchar(100) DEFAULT NULL,
+  `seat_capacity` int DEFAULT NULL,
+  `engine_type` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`aircraft_key`),
+  UNIQUE KEY `aircraft_model` (`aircraft_model`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

@@ -17,12 +17,23 @@ except ImportError:
 
 # --- Configuration ---
 
-# !!! IMPORTANT: UPDATE YOUR LOCAL DATABASE USER AND PASSWORD HERE !!!
+
 DB_CONFIG = {
     'host': 'localhost',          # Or '127.0.0.1'
     'user': 'root',      # <-- !!! UPDATE THIS !!!
     'password': '1234', # <-- !!! UPDATE THIS !!!
     'database': 'Airlines',
+    'connect_timeout': 20
+}
+
+# --- NEW: Configuration for a source database ---
+# This should point to your source/legacy system, NOT the data warehouse.
+# In this example, it points to a separate 'LegacyDB' on the same server.
+DB_CONFIG_LEGACY = {
+    'host': 'localhost',
+    'user': 'root',
+    'password': '1234',
+    'database': 'LegacyDB', # <-- This is now a separate source database
     'connect_timeout': 20
 }
 
@@ -124,6 +135,45 @@ def _transform_worldbank_transport(df):
     final_df = df[['year', 'country_name', 'country_code', 'passengers']]
     return final_df
 
+# --- NEW: Transform helper for JSON data ---
+def _transform_aircraft_details(df):
+    """Cleans the aircraft details data from JSON."""
+    print("  -> Transforming Aircraft Details (JSON) data...")
+    df = df.drop_duplicates()
+
+    # Rename columns for consistency
+    df = df.rename(columns={'model': 'aircraft_model', 'seats': 'seat_capacity', 'engine': 'engine_type'})
+
+    # Clean text fields
+    df['aircraft_model'] = df['aircraft_model'].astype(str).str.strip()
+    df['manufacturer'] = df['manufacturer'].astype(str).str.strip()
+    df['engine_type'] = df['engine_type'].astype(str).str.strip()
+    df['seat_capacity'] = pd.to_numeric(df['seat_capacity'], errors='coerce').astype('Int64')
+
+    return df[['aircraft_model', 'manufacturer', 'seat_capacity', 'engine_type']]
+
+# --- NEW: Transform helper for Database source data ---
+def _transform_flight_routes(df):
+    """Cleans the flight routes data from the legacy database."""
+    print("  -> Transforming Flight Routes (DB) data...")
+    df['origin_iata'] = df['origin_iata'].astype(str).str.strip().str.upper()
+    df['destination_iata'] = df['destination_iata'].astype(str).str.strip().str.upper()
+    df['distance_km'] = pd.to_numeric(df['distance_km'], errors='coerce').astype('Int64')
+    return df
+
+# --- NEW: Transform helper for airport reference data ---
+def _transform_airport_reference(df):
+    """Cleans the airport reference data from JSON."""
+    print("  -> Transforming Airport Reference (JSON) data...")
+    df = df.drop_duplicates(subset=['iata'])
+
+    # Rename columns for consistency
+    df = df.rename(columns={'iata': 'iata_code', 'name': 'airport_name'})
+
+    # Clean text fields
+    for col in ['iata_code', 'airport_name', 'city']:
+        df[col] = df[col].astype(str).str.strip()
+    return df[['iata_code', 'airport_name', 'city']]
 
 # --- ETL Pipeline ---
 
@@ -136,17 +186,34 @@ def extract():
     source_files = {
         "caa_movements": "caa_passenger_movements_unclean.xlsx",
         "srilankan_financials": "srilankan_annual_report_unclean.xlsx",
-        "worldbank_transport": "worldbank_air_transport_unclean.xlsx"
+        "worldbank_transport": "worldbank_air_transport_unclean.xlsx",
+        "aircraft_details": "aircraft_details.json",
+        "airport_reference": "airport_reference.json" # <-- NEW Reference source
     }
     
     try:
+        # --- Part 1: Read from files (Excel, JSON) ---
         for name, filename in source_files.items():
             path = os.path.join(DATA_SOURCE_FOLDER, filename) 
             if not os.path.exists(path):
                 print(f"❌ ERROR: File not found: {path}"); return None
             
-            dataframes[name] = pd.read_excel(path, na_filter=False, dtype=str)
+            # --- MODIFIED: Handle different file types ---
+            if filename.endswith('.xlsx'):
+                dataframes[name] = pd.read_excel(path, na_filter=False, dtype=str)
+            elif filename.endswith('.json'):
+                dataframes[name] = pd.read_json(path, dtype=str)
+
             print(f"✅ Read {len(dataframes[name])} rows from {filename}")
+
+        # --- Part 2: Read from a database source ---
+        print("\nReading data from legacy database source...")
+        # This now connects to the source DB and reads from a pre-existing table.
+        # The data creation logic has been removed to simulate a real-world scenario.
+        with mysql.connector.connect(**DB_CONFIG_LEGACY) as conn:
+            sql_query = "SELECT route_id, origin_iata, destination_iata, distance_km FROM flight_routes"
+            dataframes['flight_routes'] = pd.read_sql(sql_query, conn)
+            print(f"✅ Read {len(dataframes['flight_routes'])} rows from database '{DB_CONFIG_LEGACY['database']}', table 'flight_routes'")
             
         return dataframes
     except Exception as e:
@@ -172,6 +239,17 @@ def transform(raw_data):
         if 'worldbank_transport' in raw_data:
             raw_data['worldbank_transport_clean'] = _transform_worldbank_transport(raw_data['worldbank_transport'])
             print("✅ Transformed World Bank transport.")
+
+        # --- NEW: Transform new data sources ---
+        if 'aircraft_details' in raw_data:
+            raw_data['aircraft_details_clean'] = _transform_aircraft_details(raw_data['aircraft_details'])
+            print("✅ Transformed Aircraft Details (from JSON).")
+        if 'flight_routes' in raw_data:
+            raw_data['flight_routes_clean'] = _transform_flight_routes(raw_data['flight_routes'])
+            print("✅ Transformed Flight Routes (from DB).")
+        if 'airport_reference' in raw_data:
+            raw_data['airport_reference_clean'] = _transform_airport_reference(raw_data['airport_reference'])
+            print("✅ Transformed Airport Reference (from JSON).")
 
         print("✅ All transformations complete.")
         return raw_data
@@ -201,6 +279,14 @@ def load(transformed_data):
             _load_stg_srilankan_financials(conn, cursor, transformed_data['srilankan_financials_clean'])
         if 'worldbank_transport_clean' in transformed_data:
             _load_stg_worldbank_transport(conn, cursor, transformed_data['worldbank_transport_clean'])
+
+        # --- NEW: Load new data sources to staging ---
+        if 'aircraft_details_clean' in transformed_data:
+            _load_stg_aircraft_details(conn, cursor, transformed_data['aircraft_details_clean'])
+        if 'flight_routes_clean' in transformed_data:
+            _load_stg_flight_routes(conn, cursor, transformed_data['flight_routes_clean'])
+        if 'airport_reference_clean' in transformed_data:
+            _load_stg_airport_reference(conn, cursor, transformed_data['airport_reference_clean'])
 
         print("\n✅ All staging data loaded successfully.")
         return True
@@ -252,10 +338,12 @@ def run_warehouse_transforms():
             FROM stg_worldbank_transport WHERE year IS NOT NULL
         """,
         "Populating dim_airport...": """
-            INSERT IGNORE INTO dim_airport (iata_code, country)
-            SELECT DISTINCT airport_iata, country
-            FROM stg_caa_movements
-            WHERE airport_iata IS NOT NULL AND airport_iata != ''
+            INSERT IGNORE INTO dim_airport (iata_code, airport_name, city, country)
+            SELECT DISTINCT
+                s.airport_iata, r.airport_name, r.city, s.country
+            FROM stg_caa_movements s
+            LEFT JOIN stg_airport_reference r ON s.airport_iata = r.iata_code
+            WHERE s.airport_iata IS NOT NULL AND s.airport_iata != ''
         """,
         "Populating dim_country...": """
             INSERT IGNORE INTO dim_country (country_code, country_name)
@@ -274,6 +362,12 @@ def run_warehouse_transforms():
                 END AS metric_category
             FROM stg_srilankan_financials
             WHERE metric IS NOT NULL AND metric != ''
+        """,
+        "Populating dim_aircraft...": """
+            INSERT IGNORE INTO dim_aircraft (aircraft_model, manufacturer, seat_capacity, engine_type)
+            SELECT DISTINCT aircraft_model, manufacturer, seat_capacity, engine_type
+            FROM stg_aircraft_details
+            WHERE aircraft_model IS NOT NULL AND aircraft_model != ''
         """,
         "Populating fact_passenger_movements...": """
             TRUNCATE TABLE fact_passenger_movements
@@ -384,6 +478,50 @@ def _load_stg_worldbank_transport(conn, cursor, df):
         print(f"   -> {cursor.rowcount} rows processed for stg_worldbank_transport.")
     except Exception as e:
         print(f"❌ Error loading stg_worldbank_transport: {e}"); conn.rollback(); raise
+
+# --- NEW: Database helper functions for new sources ---
+
+def _load_stg_aircraft_details(conn, cursor, df):
+    """Loads cleaned aircraft data into its staging table."""
+    print("🔄 Loading stg_aircraft_details...")
+    try:
+        data_to_load = _clean_df_for_db(df)
+        cursor.execute("TRUNCATE TABLE stg_aircraft_details")
+        print("   -> Staging table truncated.")
+        sql = "INSERT INTO stg_aircraft_details (aircraft_model, manufacturer, seat_capacity, engine_type) VALUES (%s,%s,%s,%s)"
+        cursor.executemany(sql, data_to_load)
+        conn.commit()
+        print(f"   -> {cursor.rowcount} rows processed for stg_aircraft_details.")
+    except Exception as e:
+        print(f"❌ Error loading stg_aircraft_details: {e}"); conn.rollback(); raise
+
+def _load_stg_flight_routes(conn, cursor, df):
+    """Loads cleaned flight route data into its staging table."""
+    print("🔄 Loading stg_flight_routes...")
+    try:
+        data_to_load = _clean_df_for_db(df)
+        cursor.execute("TRUNCATE TABLE stg_flight_routes")
+        print("   -> Staging table truncated.")
+        sql = "INSERT INTO stg_flight_routes (route_id, origin_iata, destination_iata, distance_km) VALUES (%s,%s,%s,%s)"
+        cursor.executemany(sql, data_to_load)
+        conn.commit()
+        print(f"   -> {cursor.rowcount} rows processed for stg_flight_routes.")
+    except Exception as e:
+        print(f"❌ Error loading stg_flight_routes: {e}"); conn.rollback(); raise
+
+def _load_stg_airport_reference(conn, cursor, df):
+    """Loads cleaned airport reference data into its staging table."""
+    print("🔄 Loading stg_airport_reference...")
+    try:
+        data_to_load = _clean_df_for_db(df)
+        cursor.execute("TRUNCATE TABLE stg_airport_reference")
+        print("   -> Staging table truncated.")
+        sql = "INSERT INTO stg_airport_reference (iata_code, airport_name, city) VALUES (%s,%s,%s)"
+        cursor.executemany(sql, data_to_load)
+        conn.commit()
+        print(f"   -> {cursor.rowcount} rows processed for stg_airport_reference.")
+    except Exception as e:
+        print(f"❌ Error loading stg_airport_reference: {e}"); conn.rollback(); raise
 
 # --- Main Execution Block ---
 
