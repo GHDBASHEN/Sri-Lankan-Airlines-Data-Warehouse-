@@ -21,7 +21,7 @@ except ImportError:
 DB_CONFIG = {
     'host': 'localhost',          # Or '127.0.0.1'
     'user': 'root',      # <-- !!! UPDATE THIS !!!
-    'password': '1234', # <-- !!! UPDATE THIS !!!
+    'password': 'admin1234', # <-- !!! UPDATE THIS !!!
     'database': 'Airlines',
     'connect_timeout': 20
 }
@@ -32,13 +32,13 @@ DB_CONFIG = {
 DB_CONFIG_LEGACY = {
     'host': 'localhost',
     'user': 'root',
-    'password': '1234',
+    'password': 'admin1234',
     'database': 'LegacyDB', # <-- This is now a separate source database
     'connect_timeout': 20
 }
 
 # Define a folder for all your data source files
-DATA_SOURCE_FOLDER = './data/raw'
+DATA_SOURCE_FOLDER = '../data/raw'
 
 
 # --- Transform Helper Functions ---

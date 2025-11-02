@@ -1,4 +1,4 @@
-# Sri Lankan Airlines Data Warehouse & Analytics
+sh# Sri Lankan Airlines Data Warehouse & Analytics
 
 This project is a complete end-to-end data engineering solution that builds a data warehouse for Sri Lankan air travel analytics. It follows a modern **ELT (Extract, Load, Transform)** process, pulling raw, unclean data from multiple sources, loading it into a staging area, and then transforming it into a clean, query-ready **Galaxy Schema** for business intelligence.
 
