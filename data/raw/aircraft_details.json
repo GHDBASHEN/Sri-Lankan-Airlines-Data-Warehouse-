@@ -1,0 +1,7 @@
+[
+    {"model": "A330-300", "manufacturer": "Airbus", "seats": 297, "engine": "Twin-jet"},
+    {"model": "A320neo", "manufacturer": "Airbus", "seats": 150, "engine": "Twin-jet"},
+    {"model": "777-300ER", "manufacturer": "Boeing", "seats": 396, "engine": "Twin-jet"},
+    {"model": "787-9", "manufacturer": "Boeing", "seats": 296, "engine": "Twin-jet"},
+    {"model": "Dash 8-400", "manufacturer": "De Havilland Canada", "seats": 76, "engine": "Turboprop"}
+]

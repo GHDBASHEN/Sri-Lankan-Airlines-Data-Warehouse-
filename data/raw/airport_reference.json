@@ -1,0 +1,5 @@
+[
+    {"iata": "CMB", "name": "Bandaranaike International Airport", "city": "Colombo"},
+    {"iata": "JAF", "name": "Jaffna International Airport", "city": "Jaffna"},
+    {"iata": "MRIA", "name": "Mattala Rajapaksa International Airport", "city": "Mattala"}
+]
