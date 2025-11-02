@@ -38,7 +38,7 @@ DB_CONFIG_LEGACY = {
 }
 
 # Define a folder for all your data source files
-DATA_SOURCE_FOLDER = './data/raw'
+DATA_SOURCE_FOLDER = '../data/raw'
 
 
 # --- Transform Helper Functions ---
