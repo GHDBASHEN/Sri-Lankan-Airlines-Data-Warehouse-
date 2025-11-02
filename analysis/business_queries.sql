@@ -449,3 +449,295 @@ SELECT
         JOIN dim_date d_caa ON f_caa.date_key = d_caa.date_key
         WHERE d_caa.year = 2022
     ) * 100.0 AS SL_Passenger_Share_of_CAA;
+
+
+
+
+    Passenger & Traffic Analysis (Sri Lanka)
+These queries focus on the data from the Civil Aviation Authority.
+
+Total passengers per year in Sri Lanka:
+
+sql
+SELECT d.year, SUM(f.passengers) AS total_passengers
+FROM fact_passenger_movements f
+JOIN dim_date d ON f.date_key = d.date_key
+GROUP BY d.year
+ORDER BY d.year;
+Busiest airport by total passenger volume:
+
+sql
+SELECT a.airport_name, SUM(f.passengers) AS total_passengers
+FROM fact_passenger_movements f
+JOIN dim_airport a ON f.airport_key = a.airport_key
+GROUP BY a.airport_name
+ORDER BY total_passengers DESC;
+Monthly passenger traffic for Colombo (CMB) in the latest year:
+
+sql
+ Show full code block 
+SELECT d.month_name, SUM(f.passengers) AS monthly_passengers
+FROM fact_passenger_movements f
+JOIN dim_date d ON f.date_key = d.date_key
+JOIN dim_airport a ON f.airport_key = a.airport_key
+WHERE a.iata_code = 'CMB' AND d.year = (SELECT MAX(year) FROM dim_date)
+GROUP BY d.year, d.month, d.month_name
+ORDER BY d.month;
+Year-over-year passenger growth rate for all Sri Lankan airports combined:
+
+sql
+ Show full code block 
+WITH yearly_traffic AS (
+    SELECT d.year, SUM(f.passengers) AS total_passengers
+    FROM fact_passenger_movements f
+    JOIN dim_date d ON f.date_key = d.date_key
+    GROUP BY d.year
+)
+SELECT
+    year, total_passengers,
+    LAG(total_passengers, 1, 0) OVER (ORDER BY year) AS previous_year_passengers,
+    ROUND(((total_passengers - LAG(total_passengers, 1, 0) OVER (ORDER BY year)) / LAG(total_passengers, 1, 0) OVER (ORDER BY year)) * 100, 2) AS growth_percentage
+FROM yearly_traffic
+ORDER BY year;
+Average passengers per aircraft movement (a measure of flight fullness/efficiency) at each airport:
+
+sql
+ Show full code block 
+SELECT a.airport_name, ROUND(SUM(f.passengers) / SUM(f.aircraft_movements)) AS avg_passengers_per_flight
+FROM fact_passenger_movements f
+JOIN dim_airport a ON f.airport_key = a.airport_key
+WHERE f.aircraft_movements > 0
+GROUP BY a.airport_name
+ORDER BY avg_passengers_per_flight DESC;
+Passenger traffic on weekends vs. weekdays:
+
+sql
+ Show full code block 
+SELECT
+    CASE WHEN d.is_weekend = 1 THEN 'Weekend' ELSE 'Weekday' END AS day_type,
+    SUM(f.passengers) AS total_passengers
+FROM fact_passenger_movements f
+JOIN dim_date d ON f.date_key = d.date_key
+GROUP BY day_type;
+Top 5 busiest days on record at Bandaranaike International Airport (CMB):
+
+sql
+ Show full code block 
+SELECT d.full_date, f.passengers
+FROM fact_passenger_movements f
+JOIN dim_date d ON f.date_key = d.date_key
+JOIN dim_airport a ON f.airport_key = a.airport_key
+WHERE a.iata_code = 'CMB'
+ORDER BY f.passengers DESC
+LIMIT 5;
+Financial & Operational Analysis (SriLankan Airlines)
+These queries focus on the data from the SriLankan Airlines annual reports.
+
+SriLankan Airlines' revenue and operating loss trend over the years:
+
+sql
+ Show full code block 
+SELECT
+    d.year,
+    SUM(CASE WHEN m.metric_name = 'Revenue' THEN f.value ELSE 0 END) AS total_revenue,
+    SUM(CASE WHEN m.metric_name = 'Operating Loss' THEN f.value ELSE 0 END) AS operating_loss
+FROM fact_airline_financials f
+JOIN dim_date d ON f.date_key = d.date_key
+JOIN dim_metric m ON f.metric_key = m.metric_key
+WHERE m.metric_category = 'Financial'
+GROUP BY d.year
+ORDER BY d.year;
+List all operational metrics for the most recent year:
+
+sql
+ Show full code block 
+SELECT m.metric_name, f.value
+FROM fact_airline_financials f
+JOIN dim_metric m ON f.metric_key = m.metric_key
+JOIN dim_date d ON f.date_key = d.date_key
+WHERE m.metric_category = 'Operational'
+  AND d.year = (SELECT MAX(d2.year) FROM fact_airline_financials f2 JOIN dim_date d2 ON f2.date_key = d2.date_key)
+ORDER BY m.metric_name;
+Average passenger load factor over the last 5 years:
+
+sql
+ Show full code block 
+SELECT AVG(f.value) AS average_load_factor
+FROM fact_airline_financials f
+JOIN dim_metric m ON f.metric_key = m.metric_key
+JOIN dim_date d ON f.date_key = d.date_key
+WHERE m.metric_name = 'Passenger Load Factor'
+  AND d.year > (SELECT MAX(year) FROM dim_date) - 5;
+Compare Cargo Revenue to Passenger Revenue (as a percentage) over time:
+
+sql
+ Show full code block 
+WITH yearly_revenue AS (
+    SELECT
+        d.year,
+        SUM(CASE WHEN m.metric_name = 'Revenue' THEN f.value ELSE 0 END) AS passenger_revenue,
+        SUM(CASE WHEN m.metric_name = 'Cargo Revenue' THEN f.value ELSE 0 END) AS cargo_revenue
+    FROM fact_airline_financials f
+    JOIN dim_date d ON f.date_key = d.date_key
+    JOIN dim_metric m ON f.metric_key = m.metric_key
+    GROUP BY d.year
+)
+SELECT year, passenger_revenue, cargo_revenue,
+       ROUND((cargo_revenue / passenger_revenue) * 100, 2) AS cargo_as_pct_of_passenger_revenue
+FROM yearly_revenue
+WHERE passenger_revenue > 0
+ORDER BY year;
+Show the year with the highest recorded operating loss:
+
+sql
+ Show full code block 
+SELECT d.year, f.value AS operating_loss
+FROM fact_airline_financials f
+JOIN dim_metric m ON f.metric_key = m.metric_key
+JOIN dim_date d ON f.date_key = d.date_key
+WHERE m.metric_name = 'Operating Loss'
+ORDER BY f.value ASC -- Loss is negative, so ascending order finds the largest loss
+LIMIT 1;
+Global & Comparative Analysis (World Bank Data)
+These queries use the World Bank data to compare Sri Lanka with other countries.
+
+Compare Sri Lanka's total air passengers with neighboring countries for the latest available year:
+
+sql
+ Show full code block 
+SELECT c.country_name, f.passengers
+FROM fact_world_transport_stats f
+JOIN dim_country c ON f.country_key = c.country_key
+JOIN dim_date d ON f.date_key = d.date_key
+WHERE d.year = (SELECT MAX(d2.year) FROM fact_world_transport_stats f2 JOIN dim_date d2 ON f2.date_key = d2.date_key)
+  AND c.country_name IN ('Sri Lanka', 'India', 'Pakistan', 'Bangladesh', 'Maldives')
+ORDER BY f.passengers DESC;
+Find the top 10 countries by air passenger volume in the most recent year:
+
+sql
+ Show full code block 
+SELECT c.country_name, f.passengers
+FROM fact_world_transport_stats f
+JOIN dim_country c ON f.country_key = c.country_key
+JOIN dim_date d ON f.date_key = d.date_key
+WHERE d.year = (SELECT MAX(d2.year) FROM fact_world_transport_stats f2 JOIN dim_date d2 ON f2.date_key = d2.date_key)
+ORDER BY f.passengers DESC
+LIMIT 10;
+Track Sri Lanka's air passenger growth vs. the world average over the last decade:
+
+sql
+ Show full code block 
+WITH yearly_stats AS (
+    SELECT
+        d.year,
+        AVG(CASE WHEN c.country_name = 'Sri Lanka' THEN f.passengers END) AS srilanka_passengers,
+        AVG(f.passengers) AS world_avg_passengers
+    FROM fact_world_transport_stats f
+    JOIN dim_country c ON f.country_key = c.country_key
+    JOIN dim_date d ON f.date_key = d.date_key
+    WHERE d.year > (SELECT MAX(year) FROM dim_date) - 10
+    GROUP BY d.year
+)
+SELECT year, srilanka_passengers, ROUND(world_avg_passengers) as world_avg_passengers
+FROM yearly_stats
+ORDER BY year;
+Combined & Advanced Queries
+These queries join multiple fact and dimension tables for deeper insights.
+
+Correlate SriLankan Airlines' revenue with total passenger traffic in Sri Lanka:
+
+sql
+ Show full code block 
+SELECT
+    fin.year,
+    fin.total_revenue,
+    traffic.total_passengers
+FROM
+    (SELECT d.year, SUM(f.value) AS total_revenue FROM fact_airline_financials f JOIN dim_date d ON f.date_key = d.date_key JOIN dim_metric m ON f.metric_key = m.metric_key WHERE m.metric_name = 'Revenue' GROUP BY d.year) AS fin
+JOIN
+    (SELECT d.year, SUM(f.passengers) AS total_passengers FROM fact_passenger_movements f JOIN dim_date d ON f.date_key = d.date_key GROUP BY d.year) AS traffic
+ON fin.year = traffic.year
+ORDER BY fin.year;
+List all available financial metrics and their categories:
+
+sql
+SELECT DISTINCT metric_name, metric_category
+FROM dim_metric
+ORDER BY metric_category, metric_name;
+Find the quarter with the highest passenger traffic across all Sri Lankan airports:
+
+sql
+ Show full code block 
+SELECT d.year, d.quarter, SUM(f.passengers) AS quarterly_passengers
+FROM fact_passenger_movements f
+JOIN dim_date d ON f.date_key = d.date_key
+GROUP BY d.year, d.quarter
+ORDER BY quarterly_passengers DESC
+LIMIT 1;
+List all aircraft models in the fleet with their seat capacity:
+
+sql
+SELECT manufacturer, aircraft_model, seat_capacity
+FROM dim_aircraft
+ORDER BY manufacturer, seat_capacity DESC;
+Show all financial data recorded in USD:
+
+sql
+ Show full code block 
+SELECT d.year, m.metric_name, f.value, f.currency
+FROM fact_airline_financials f
+JOIN dim_date d ON f.date_key = d.date_key
+JOIN dim_metric m ON f.metric_key = m.metric_key
+WHERE f.currency = 'USD'
+ORDER BY d.year, m.metric_name;
+Get the total number of passengers for each country in the World Bank data:
+
+sql
+SELECT c.country_name, SUM(f.passengers) AS total_passengers_all_time
+FROM fact_world_transport_stats f
+JOIN dim_country c ON f.country_key = c.country_key
+GROUP BY c.country_name
+ORDER BY total_passengers_all_time DESC;
+Find the first and last date of recorded passenger movements:
+
+sql
+SELECT MIN(d.full_date) AS first_record, MAX(d.full_date) AS last_record
+FROM fact_passenger_movements f
+JOIN dim_date d ON f.date_key = d.date_key;
+Count the number of unique countries in the World Bank dataset:
+
+
+SELECT COUNT(DISTINCT country_name) AS number_of_countries FROM dim_country;
+
+
+
+Show the trend of the number of employees at SriLankan Airlines:
+
+
+ Show full code block 
+SELECT d.year, f.value AS employee_count
+FROM fact_airline_financials f
+JOIN dim_metric m ON f.metric_key = m.metric_key
+JOIN dim_date d ON f.date_key = d.date_key
+WHERE m.metric_name = 'Employee Count'
+ORDER BY d.year;
+
+
+
+Calculate the percentage of total Sri Lankan passengers that passed through Colombo (CMB) each year:
+
+
+WITH yearly_totals AS (
+    SELECT d.year,
+        SUM(f.passengers) AS total_passengers,
+        SUM(CASE WHEN a.iata_code = 'CMB' THEN f.passengers ELSE 0 END) AS cmb_passengers
+    FROM fact_passenger_movements f
+    JOIN dim_date d ON f.date_key = d.date_key
+    JOIN dim_airport a ON f.airport_key = a.airport_key
+    GROUP BY d.year
+)
+SELECT year, total_passengers, cmb_passengers,
+       ROUND((cmb_passengers / total_passengers) * 100, 2) AS cmb_percentage
+FROM yearly_totals
+WHERE total_passengers > 0
+ORDER BY year;
