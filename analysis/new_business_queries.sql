@@ -183,14 +183,16 @@ LIMIT 1;
 3. Global & Comparative (World Bank Data)
 */
 
--- 16. Sri Lanka vs. Neighbors (Latest Year)
--- Insight: Benchmark regionally.
-SELECT c.country_name, f.passengers
+-- 16. Country Comparison for Specific Year (2022)
+ 
+SELECT 
+    c.country_name,
+    f.passengers,
+    ROUND((f.passengers / SUM(f.passengers) OVER ()) * 100, 2) as percentage_of_total
 FROM fact_world_transport_stats f
 JOIN dim_country c ON f.country_key = c.country_key
 JOIN dim_date d ON f.date_key = d.date_key
-WHERE d.year = (SELECT MAX(d2.year) FROM dim_date d2)
-  AND c.country_name IN ('Sri Lanka', 'India', 'Maldives', 'Bangladesh', 'Pakistan')
+WHERE d.year = 2022
 ORDER BY f.passengers DESC;
 
 
@@ -309,11 +311,16 @@ WITH yearly AS (
 SELECT year, total, cmb, ROUND((cmb/total)*100,2) AS CMB_Percentage FROM yearly ORDER BY year;
 
 
--- 25. Quarter with Highest Passenger Traffic (All Airports)
--- Insight: Identify most active quarter historically.
-SELECT d.year, d.quarter, SUM(f.passengers) AS Total_Passengers
+-- 25. Monthly Passenger Distribution for 2023
+-- Insight: See passenger traffic pattern across all months of 2023
+
+ 
+SELECT 
+    d.month_name,
+    SUM(f.passengers) AS Monthly_Passengers,
+    ROUND((SUM(f.passengers) / SUM(SUM(f.passengers)) OVER()) * 100, 2) AS Percentage_Of_Total
 FROM fact_passenger_movements f
 JOIN dim_date d ON f.date_key = d.date_key
-GROUP BY d.year, d.quarter
-ORDER BY Total_Passengers DESC
-LIMIT 1;
+WHERE d.year = 2023
+GROUP BY d.month_name, d.month
+ORDER BY d.month;
