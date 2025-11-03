@@ -256,7 +256,7 @@ SELECT COUNT(DISTINCT country_name) AS Total_Countries FROM dim_country;
 4. Combined or Advanced Multi-Fact Insights
 */
 
--- Query 26: Aircraft Fleet Analysis by Manufacturer
+-- Query 21: Aircraft Fleet Analysis by Manufacturer
 SELECT
     manufacturer,
     COUNT(aircraft_key) AS Total_Aircraft,
