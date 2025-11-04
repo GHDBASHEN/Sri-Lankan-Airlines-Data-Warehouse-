@@ -108,15 +108,27 @@ JOIN dim_date d ON f.date_key = d.date_key
 GROUP BY Day_Type;
 
 
--- 10. Top 5 Busiest Days at CMB
--- Insight: Pinpoint historically high traffic days.
-SELECT d.full_date, f.passengers
-FROM fact_passenger_movements f
-JOIN dim_date d ON f.date_key = d.date_key
-JOIN dim_airport a ON f.airport_key = a.airport_key
-WHERE a.iata_code = 'CMB'
-ORDER BY f.passengers DESC
-LIMIT 5;
+-- Query 10: Weekend vs. Weekday Passenger Traffic by Airport
+SELECT
+    a.iata_code AS Airport,
+    CASE
+        WHEN d.is_weekend = 1 THEN 'Weekend'
+        ELSE 'Weekday'
+    END AS Day_Type,
+    SUM(f.passengers) AS Total_Passengers,
+    SUM(f.aircraft_movements) AS Total_Movements
+FROM
+    fact_passenger_movements f
+JOIN
+    dim_date d ON f.date_key = d.date_key
+JOIN
+    dim_airport a ON f.airport_key = a.airport_key
+GROUP BY
+    a.iata_code,
+    Day_Type
+ORDER BY
+    Airport,
+    Total_Passengers DESC;
 
 
 /*
@@ -246,32 +258,17 @@ SELECT COUNT(DISTINCT country_name) AS Total_Countries FROM dim_country;
 4. Combined or Advanced Multi-Fact Insights
 */
 
--- 21. Compare CAA vs. World Bank Passenger Data (Sri Lanka)
--- Insight: Evaluate data consistency across sources.
-WITH CAA AS (
-  SELECT d.year, SUM(f.passengers) AS caa_passengers
-  FROM fact_passenger_movements f JOIN dim_date d ON f.date_key = d.date_key
-  GROUP BY d.year
-),
-WB AS (
-  SELECT d.year, f.passengers AS wb_passengers
-  FROM fact_world_transport_stats f
-  JOIN dim_country c ON f.country_key = c.country_key
-  JOIN dim_date d ON f.date_key = d.date_key
-  WHERE c.country_name = 'Sri Lanka'
-),
-Years AS (
-  SELECT year FROM CAA UNION SELECT year FROM WB
-)
+-- Query 21: Aircraft Fleet Analysis by Manufacturer
 SELECT
-    y.year,
-    caa.caa_passengers,
-    wb.wb_passengers,
-    (IFNULL(caa.caa_passengers, 0) - IFNULL(wb.wb_passengers, 0)) AS Difference
-FROM Years y
-LEFT JOIN CAA caa ON y.year = caa.year
-LEFT JOIN WB wb ON y.year = wb.year
-ORDER BY y.year;
+    manufacturer,
+    COUNT(aircraft_key) AS Total_Aircraft,
+    AVG(seat_capacity) AS Avg_Seat_Capacity
+FROM
+    dim_aircraft
+GROUP BY
+    manufacturer
+ORDER BY
+    Total_Aircraft DESC;
 
 
 -- 22. SriLankan Airlines vs. Total CAA Passengers (2022)

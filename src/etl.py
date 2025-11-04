@@ -32,8 +32,8 @@ DB_CONFIG = {
 DB_CONFIG_LEGACY = {
     'host': 'localhost',
     'user': 'root',
-    'password': 'admin1234',
-    'database': 'LegacyDB', # <-- This is now a separate source database
+    'password': '1234',
+    'database': 'LegacyDB', 
     'connect_timeout': 20
 }
 
@@ -160,7 +160,7 @@ def _transform_flight_routes(df):
     df['destination_iata'] = df['destination_iata'].astype(str).str.strip().str.upper()
     df['distance_km'] = pd.to_numeric(df['distance_km'], errors='coerce').astype('Int64')
     return df
-
+# -- transformed_flight_routes
 # --- NEW: Transform helper for airport reference data ---
 def _transform_airport_reference(df):
     """Cleans the airport reference data from JSON."""
