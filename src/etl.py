@@ -314,6 +314,7 @@ def run_warehouse_transforms():
     cursor = None
     
     # All the SQL commands to run, in order
+    #populating dimension and fact tables
     sql_commands = {
         "Populating dim_date...": """
             INSERT IGNORE INTO dim_date (date_key, full_date, year, quarter, month, month_name, day, day_of_week, is_weekend)
