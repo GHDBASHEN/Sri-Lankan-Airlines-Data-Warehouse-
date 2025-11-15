@@ -2,6 +2,7 @@
 Business Question: "What is the total number of passengers and aircraft movements recorded by the CAA for each airport?"
 
 
+-- business_query_1.sql
 SELECT
     a.iata_code AS Airport,
     a.country AS Country,
