@@ -21,7 +21,7 @@ ORDER BY
 
 
 
-
+-- business_query_2.sql
 
 2.Passenger Movement Trends Over Time (Annual)
 Business Question: "How many passengers did the CAA record each year and quarter?"
